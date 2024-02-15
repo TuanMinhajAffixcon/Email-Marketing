@@ -167,8 +167,11 @@ l=[]
 for hit in result:
     # st.write(hit['_source'])
     l.append(hit['_source'])
-with st.expander("View Data"):
-    st.write(pd.DataFrame(l).sample(5))
+if len(l)>0:
+    with st.expander("View Data"):
+        st.write(pd.DataFrame(l).sample(5))
+else:
+    st.warning('No MAtching Records Found!')
 # st.write(count)
 st.subheader(f"Total Matching Count: {count}")
 # df=pd.read_csv('random_samples.csv').fillna("")
