@@ -171,7 +171,7 @@ if len(l)>0:
     with st.expander("View Data"):
         st.write(pd.DataFrame(l).sample(5))
 else:
-    st.warning('No MAtching Records Found!')
+    st.warning('No Matching Records Found!')
 # st.write(count)
 st.subheader(f"Total Matching Count: {count}")
 # df=pd.read_csv('random_samples.csv').fillna("")
