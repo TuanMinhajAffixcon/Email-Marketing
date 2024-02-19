@@ -208,28 +208,57 @@ niche_count = es.count(index=index_name, body=query)['count']
 #-----------------------------------------------------------------------------------------------------------------
 
 industry = es.search(index=index_name, body=query)['hits']['hits']
-industry_list=[]
-for hit in industry:
-    # st.write(hit['_source'])
-    industry_list.append(hit['_source'])
-with st.expander("industry Match View Data"):
-    st.write(pd.DataFrame(industry_list).sample(5))
+# all_age_range_values = [hit['_source']['age_range'] for hit in industry['hits']['hits']]
+# unique_age_ranges = set(all_age_range_values)
+all_age_range_values = [hit['_source']['age_range'] for hit in industry]
+all_gender_values = [hit['_source']['Gender'] for hit in industry]
+all_Income_values = [hit['_source']['Income'] for hit in industry]
+unique_income_values = sorted(set(value for value in all_Income_values if value != 'unknown_income'))
+ordered_categories = [
+    "$20,800 - $41,599",
+    "$41,600 - $64,999",
+    "$65,000 - $77,999",
+    "$78,000 - $103,999",
+    "$104,000 - $155,999",
+    "$156,000+"
+]
+sorted_income_values = sorted(unique_income_values, key=lambda x: ordered_categories.index(x))
+ordered_income_series = pd.Categorical(sorted_income_values, categories=ordered_categories, ordered=True)
+all_Suburb_values = [hit['_source']['Suburb'] for hit in industry]
+all_State_values = [hit['_source']['State'] for hit in industry]
 
-all_age_range_values = get_distinct_values("age_range", index_name, es)
-all_gender_values = get_distinct_values("Gender", index_name, es)
-all_Income_values = get_distinct_values("Income", index_name, es)
-all_Suburb_values = get_distinct_values("Suburb", index_name, es)
-all_State_values = get_distinct_values("State", index_name, es)
+# industry_list=[]
+# for hit in industry:
+#     # st.write(hit['_source'])
+#     industry_list.append(hit['_source'])
+# # with st.expander("industry Match View Data"):
+#     # st.write(pd.DataFrame(industry_list).sample(5))
+# industry_list=pd.DataFrame(industry_list)
+# st.write(industry_list)
 
-age_range_filter = st.multiselect(f"Select Age Range", ["All"] + all_age_range_values)
-Gender_filter = st.multiselect(f"Select Gender", ["All"] + all_gender_values)
-Income_filter = st.multiselect(f"Select Income", ["All"] + all_Income_values)
-Suburb_filter = st.multiselect(f"Select Suburb", ["All"] + all_Suburb_values)
-State_filter = st.multiselect(f"Select State", ["All"] + all_State_values)
+# all_age_range_values = get_distinct_values("age_range", index_name, es)
+# all_age_range_values= st.multiselect("Select age ranges", sorted(set(age_range_values)))
+# all_gender_values= st.multiselect("Select Gender", sorted(set(all_gender_values)))
+# all_Income_values= st.multiselect("Select Income ranges", sorted(set(all_Income_values)))
+# all_Suburb_values= st.multiselect("Select Suburb", sorted(set(all_Suburb_values)))
+# all_State_values= st.multiselect("Select State", sorted(set(all_State_values)))
+
+
+# all_gender_values = get_distinct_values("Gender", index_name, es)
+# all_Income_values = get_distinct_values("Income", index_name, es)
+# all_Suburb_values = get_distinct_values("Suburb", index_name, es)
+# all_State_values = get_distinct_values("State", index_name, es)
+
+age_range_filter = st.multiselect(f"Select Age Range", ["All"] + sorted(set(value for value in all_age_range_values if value != '')))
+Gender_filter = st.multiselect(f"Select Gender", ["All"] + sorted(set(value for value in all_gender_values if value != 'unknown_gender')))
+Income_filter = st.multiselect(f"Select Income", ["All"] + list(ordered_income_series))
+Suburb_filter = st.multiselect(f"Select Suburb", ["All"] + sorted(set(all_Suburb_values)))
+State_filter = st.multiselect(f"Select State", ["All"] + sorted(set(all_State_values)))
 
 
 if "All" in age_range_filter:
-    age_range_filter = all_age_range_values
+    # age_range_filter = all_age_range_values
+    age_range_filter=all_age_range_values
 if "All" in Gender_filter:
     Gender_filter = all_gender_values
 if "All" in Income_filter:
