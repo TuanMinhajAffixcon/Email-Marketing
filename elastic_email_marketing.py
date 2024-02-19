@@ -8,6 +8,7 @@ from decouple import config
 warnings.filterwarnings('ignore')
 from dotenv import load_dotenv
 import os
+import re
 load_dotenv()
 
 index_name='email_marketing'
@@ -20,7 +21,7 @@ es = Elasticsearch(elasticsearch_url, api_key=elasticsearch_api_key)
 
 # Page configuration
 st.set_page_config(
-    page_title="Own Clustering",
+    page_title="Email Marketing",
     page_icon="",
     layout="wide",
     initial_sidebar_state="expanded")
@@ -43,18 +44,58 @@ total_count = es.count(index=index_name)['count']
 # st.subheader(f"Total Available Email Address: {total_count}")
 
 df_seg=pd.read_csv('affixcon_segments.csv',encoding='latin-1').dropna(subset=['segment_name'])
+df_seg['code'] = df_seg['code'].astype(str)
 df_seg.category = df_seg.category.str.upper()
 industry_list = df_seg['industry'].dropna().unique().tolist()
 selected_industry = st.selectbox(' :bookmark_tabs: Enter Industry:', industry_list)
-segment_industry_dict = df_seg.groupby('industry')['segment_name'].apply(list).to_dict()
-item_list = segment_industry_dict[selected_industry]
-select_all_segments = st.checkbox("Select All Segments",value=True)
-if select_all_segments:
-    selected_segments = item_list
-else:
-    selected_segments = st.multiselect("Select one or more segments:", item_list)
+selected_code= df_seg.loc[df_seg['industry'] == str(selected_industry), 'code'].values[0]
+# st.write(selected_code)
 
+def filter_values(df, input_char):
+    
+    numeric_part = re.search(r'\d+', input_char)
+    # Extract unique values from column 'b' that start with the given input_char
+    filtered_values = [value for value in df['code'].unique() if value.startswith(input_char)]
+
+    # # If input_char has a dot ('.'), filter values at any level with one more digit after the dot
+    if '.' in input_char:
+        filtered_values = [value for value in filtered_values if re.match(f"{input_char}\.\d+", value)]
+    else:
+        if numeric_part: 
+            filtered_values = [item for item in filtered_values if str(item).count('.') == 1]
+            filtered_values = [value for value in filtered_values if value.split('.')[0] == input_char]
+    #     # If input_char is only alphabet, filter values without a dot ('.')
+        else:
+            filtered_values = [value for value in filtered_values if not re.search(r'\.', value)]
+            filtered_values = [item for item in filtered_values if str(item) != input_char]
+    return filtered_values
+
+
+item_list = []
+segment_industry_dict = df_seg.groupby('code')['segment_name'].apply(list).to_dict()
+def find_similar_codes(input_code, df):
+    similar_codes = []
+    for index, row in df.iterrows():
+        code = row['code']
+        if isinstance(code, str) and code.startswith(input_code):
+            similar_codes.append(code)
+    return similar_codes
+
+
+user_contain_list = list(set(find_similar_codes(selected_code, df_seg)))
+
+if selected_code in user_contain_list:
+    for code in user_contain_list:
+        item_list_code = segment_industry_dict[code]
+        for item in item_list_code:
+            item_list.append(item)
+else:
+    item_list = []
+
+selected_segments=item_list
 # st.write(selected_segments)
+
+
 segment_category_dict = df_seg.set_index('segment_name')['category'].to_dict()
 result_dict = {}
 filtered_dict = {key: value for key, value in segment_category_dict.items() if key in selected_segments}
@@ -112,7 +153,60 @@ query = {
     }
 }
 industry_count = es.count(index=index_name, body=query)['count']
-st.subheader(f"Total Industry Match Email Address: {industry_count}")
+# st.subheader(f"Total Industry Match Email Address: {industry_count}")
+
+#--------------------------------------------------------------------------------------
+
+industry_list=[]
+filtered_codes = filter_values(df_seg, selected_code)
+# st.write(filtered_codes)
+code_industry_dict = df_seg.groupby('code')['industry'].apply(list).to_dict()
+
+# if selected_code in filtered_codes:
+for code in filtered_codes:
+    item_list_code = code_industry_dict[code]
+    for item in item_list_code:
+        industry_list.append(item)
+
+industry_list=list(set(industry_list))
+# Determine the number of columns based on the length of industry_list
+niche_list=[]
+
+if len(industry_list)>0:
+    num_columns = len(industry_list)
+    st.write("Select Niche Market Industry")
+    # Create the columns dynamically
+    columns = st.columns(num_columns)
+    selected_industries = []
+    for i, industry in enumerate(industry_list):
+        checkbox_industry_list = columns[i].checkbox(industry)
+        if checkbox_industry_list:
+            selected_code= df_seg.loc[df_seg['industry'] == str(industry), 'code'].values[0]
+            selected_industries.append(selected_code)
+            # st.write(selected_code)  
+    for code in selected_industries:
+        item_list_code = segment_industry_dict[code]
+        for item in item_list_code:
+            niche_list.append(item)
+
+else:
+    pass
+
+should_queries = [{'regexp': {'Concatenated.keyword': f'.*{word}.*'}} for word in niche_list]
+query = {
+    'query': {
+        'bool': {
+            'should': should_queries,
+            'minimum_should_match': 1  # At least one should match
+        }
+    }
+}
+niche_count = es.count(index=index_name, body=query)['count']
+# st.subheader(f"Total Niche Market Match Email Address: {niche_count}")
+
+
+#-----------------------------------------------------------------------------------------------------------------
+
 industry = es.search(index=index_name, body=query)['hits']['hits']
 industry_list=[]
 for hit in industry:
@@ -167,13 +261,39 @@ l=[]
 for hit in result:
     # st.write(hit['_source'])
     l.append(hit['_source'])
-if len(l)>0:
-    with st.expander("View Data"):
-        st.write(pd.DataFrame(l).sample(5))
-else:
-    st.warning('No Matching Records Found!')
-# st.write(count)
-st.subheader(f"Total Matching Count: {count}")
+# if len(l)>0:
+#     with st.expander("View Data"):
+#         st.write(pd.DataFrame(l).sample(5))
+# else:
+#     st.warning('No Matching Records Found!')
+
+if len(Suburb_filter)==2966:
+    Suburb_filter='all suburbs selected'
+
+# selected_i=[]
+# for code in selected_industries:
+#     selected_i= df_seg.loc[df_seg['code'] == str(code), 'industry'].values[0]
+#     selected_i.append(selected_i)
+
+selections=[{"selected_industry":selected_industry},{"selected_industries":selected_industries},{"niche_list":niche_list},{"age_range_filter":age_range_filter},{"Gender_filter":Gender_filter},{"Income_filter":Income_filter},{"Suburb_filter":Suburb_filter},{"State_filter":State_filter}]
+# def flatten_list(nested_list):
+#     flat_list = []
+#     for item in nested_list:
+#         if isinstance(item, list):
+#             flat_list.extend(flatten_list(item))
+#         else:
+#             flat_list.append(item)
+#     return flat_list
+flat_dict = {}
+for item in selections:
+    flat_dict.update(item)
+selections = pd.DataFrame([flat_dict]).set_index('selected_industry')
+
+# flattened_list = flatten_list(selections)
+# flattened_list=[{"selected_industry":selected_industry},{"selected_industries":selected_industries},{"niche_list":niche_list},{"age_range_filter":age_range_filter},{"Gender_filter":Gender_filter},{"Income_filter":Income_filter},{"Suburb_filter":Suburb_filter},{"State_filter":State_filter}]
+# selections = pd.DataFrame(flattened_list, columns=['Selection Critetias','Filters'])
+
+# st.subheader(f"Total Matching Count: {count}")
 # df=pd.read_csv('random_samples.csv').fillna("")
 # df['Concatenated'] = df[['interests', 'brands_visited', 'place_categories','geobehaviour']].apply(lambda row: ' '.join(row), axis=1).str.strip()
 # documents = df.to_dict(orient='records')
@@ -193,3 +313,16 @@ st.subheader(f"Total Matching Count: {count}")
 # helpers.bulk(es, actions)
 # # for document in documents:
 # #     es.bulk(index=index_name, document=document)
+
+if st.button("Click me to process selections"):
+    
+    st.subheader(f"Total Industry Match Email Address: {industry_count}")
+    st.subheader(f"Total Niche Market Match Email Address: {niche_count}")
+    st.subheader(f"Total Niche Market With Selected Filters: {count}")
+    if len(l)>0:
+        with st.expander("View Niche Market Selected Data"):
+            st.write(pd.DataFrame(l).sample(5))
+    else:
+        st.warning('No Matching Records Found!')
+    with st.expander("View All Selection Criterias"):
+        st.write("Selection Criterias",selections)
