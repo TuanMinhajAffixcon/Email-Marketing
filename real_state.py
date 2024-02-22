@@ -321,7 +321,7 @@ mobile=st.text_input('Enter Your Mobile Number:')
 
 
 if 'selections' in st.session_state.state and st.button('Request Data'):
-        send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name=name,email_address=email,mobile=mobile)
+        send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name,email,mobile)
         st.success(f'Thank you for your data request. The selection data has been sent to Affixcon.')
 
     # else:
