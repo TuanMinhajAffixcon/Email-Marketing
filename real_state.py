@@ -315,9 +315,9 @@ if st.button('Submit for see the counts'):
         with st.expander("View Niche Market Selected Data"):
             st.write(pd.DataFrame(l).apply(mask_data,axis=1)[['Firstname','Surname','Age_range','Gender','Suburb','State']])
 
-    name=st.text_input('Enter Your Name:')
-    email=st.text_input('Enter Your Email Address:')
-    mobile=st.text_input('Enter Your Mobile Number:')
+name=st.text_input('Enter Your Name:')
+email=st.text_input('Enter Your Email Address:')
+mobile=st.text_input('Enter Your Mobile Number:')
 
 
 if 'selections' in st.session_state.state and st.button('Request Data'):
