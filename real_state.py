@@ -11,7 +11,19 @@ import smtplib
 from dotenv import load_dotenv
 load_dotenv()
 
-
+st.set_page_config(page_title='Real Estate',layout='wide')
+custom_css = """
+<style>
+body {
+    background-color: #22222E; 
+    secondary-background {
+    background-color: #FA55AD; 
+    padding: 10px; 
+}
+</style>
+"""
+st.write(custom_css, unsafe_allow_html=True)
+st.markdown(custom_css, unsafe_allow_html=True)
     # Replace these with your Zoho Mail SMTP server details
 ZOHO_SMTP_SERVER = os.getenv('ZOHO_SMTP_SERVER')
 ZOHO_SMTP_PORT = 587
@@ -319,11 +331,13 @@ name=st.text_input('Enter Your Name:')
 email=st.text_input('Enter Your Email Address:')
 mobile=st.text_input('Enter Your Mobile Number:')
 
+if name and email and mobile is not None:
 
-if 'selections' in st.session_state.state and st.button('Request Data'):
-        send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name,email,mobile)
-        st.success(f'Thank you for your data request. The selection data has been sent to Affixcon.')
-
+    if 'selections' in st.session_state.state and st.button('Request Data'):
+            send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name,email,mobile)
+            st.success(f'Thank you for your data request. The selection data has been sent to Affixcon.')
+else:
+    st.warning('Please Enter your details to request data')
     # else:
     #     st.error('Please enter a valid Zoho Mail address.')
 
