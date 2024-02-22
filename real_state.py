@@ -4,6 +4,51 @@ from elasticsearch import Elasticsearch,helpers
 import os
 import time
 import re 
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
+import smtplib
+from dotenv import load_dotenv
+load_dotenv()
+
+
+    # Replace these with your Zoho Mail SMTP server details
+ZOHO_SMTP_SERVER = os.getenv('ZOHO_SMTP_SERVER')
+ZOHO_SMTP_PORT = 587
+ZOHO_USERNAME = os.getenv('ZOHO_USERNAME')  # Replace with your Zoho Mail address
+ZOHO_PASSWORD = os.getenv('ZOHO_PASSWORD')  # Replace with your Zoho Mail app password
+SENDING_EMAIL=os.getenv('SENDING_EMAIL')
+
+
+def send_email_zoho(email, df,name,email_address,mobile):
+    subject = 'Data Request'
+    body = f'Please find below details for customer details for Data Request \nCustomer Name: {name} \n Customer Email: {email_address} \n Customer Mobile: {mobile}'
+
+    # Connect to the Zoho Mail SMTP server
+    server = smtplib.SMTP(ZOHO_SMTP_SERVER, ZOHO_SMTP_PORT)
+    server.starttls()
+
+    # Login to your Zoho Mail account
+    server.login(ZOHO_USERNAME, ZOHO_PASSWORD)
+
+    # Compose the email
+    message = MIMEMultipart()
+    message['Subject'] = subject
+    message['From'] = ZOHO_USERNAME
+    message['To'] = email
+    message.attach(MIMEText(body))
+
+    # Convert DataFrame to CSV and attach it
+    csv_data = df.to_csv()
+    attachment = MIMEText(csv_data)
+    attachment.add_header('Content-Disposition', 'attachment', filename='Selection Criterias.csv')
+    message.attach(attachment)
+
+    # Send the email
+    server.sendmail(ZOHO_USERNAME, [email], message.as_string())
+
+    # Quit the server
+    server.quit()
 
 index_name='real_estate'
 elasticsearch_url = os.getenv('ELASTICSEARCH_URL')
@@ -162,23 +207,42 @@ all_State_values = get_distinct_values("State", index_name, es)
 # all_State_values = [hit['_source']['State'] for hit in industry]
 
 sti=time.time()
-age_range_filter = st.multiselect(f"Select Age Range", ["All"] + sorted(set(value for value in all_age_range_values if value != '')))
-Gender_filter = st.multiselect(f"Select Gender", ["All"] + sorted(set(value for value in all_gender_values if value != '' and value !="_")))
-Income_filter = st.multiselect(f"Select Income", ["All"] + sorted(set(value for value in all_Income_values if value != '')))
-Suburb_filter = st.multiselect(f"Select Suburb", ["All"] + sorted(set(all_Suburb_values)))
-State_filter = st.multiselect(f"Select State", ["All"] + sorted(set(all_State_values)))
+demographics_features = st.multiselect('Select Features to Analyze', ['Gender', 'Age_Range', 'Income', 'Suburb', 'State'])
+
+# Initialize filters
+# age_range_filter = ["All"]
+# Gender_filter = ["All"]
+# Income_filter = ["All"]
+# Suburb_filter = ["All"]
+# State_filter = ["All"]
+
+# Update options based on selected demographics_features
+if 'Age_Range' in demographics_features:
+    age_range_filter = st.multiselect(f"Select Age_Range", sorted(set(value for value in all_age_range_values if value != '')))
+
+if 'Gender' in demographics_features:
+    Gender_filter = st.multiselect(f"Select Gender", sorted(set(value for value in all_gender_values if value != '' and value != "_")))
+
+if 'Income' in demographics_features:
+    Income_filter = st.multiselect(f"Select Income", sorted(set(value for value in all_Income_values if value != '')))
+
+if 'Suburb' in demographics_features:
+    Suburb_filter = st.multiselect(f"Select Suburb", sorted(set(all_Suburb_values)))
+
+if 'State' in demographics_features:
+    State_filter = st.multiselect(f"Select State", sorted(set(all_State_values)))
 
 
-if "All" in age_range_filter:
+if 'Age_Range' not in demographics_features:
     # age_range_filter = all_age_range_values
     age_range_filter=all_age_range_values
-if "All" in Gender_filter:
+if "Gender" not in demographics_features:
     Gender_filter = all_gender_values
-if "All" in Income_filter:
+if 'Income' not in demographics_features:
     Income_filter = all_Income_values
-if "All" in Suburb_filter:
+if 'Suburb' not in demographics_features:
     Suburb_filter = all_Suburb_values
-if "All" in State_filter:
+if 'State' not in demographics_features:
     State_filter = all_State_values
 
 query = {
@@ -189,7 +253,7 @@ query = {
     }
 }
 
-if len(age_range_filter) > 0 and len(Gender_filter) > 0 and len(Income_filter) > 0 and len(Suburb_filter) > 0 and len(State_filter) > 0 :
+if len(demographics_features) > 0:
 # # Add filters to the query
     query['query']['bool']['must'].extend([
         {"terms": {"Age_range.keyword": age_range_filter}},
@@ -202,28 +266,34 @@ else:
     st.warning("Please select at least one filter.")
 
 
-selections=[{"selected_industry":'Real estate'},{"niche_list":segment_list},{"age_range_filter":age_range_filter},{"Gender_filter":Gender_filter},{"Income_filter":Income_filter},{"Suburb_filter":Suburb_filter},{"State_filter":State_filter}]
+selections = [
+    {"selected_industry": 'Real estate'},
+    {"niche_list": segment_list},
+    {"age_range_filter": age_range_filter} if 'Age_Range' in demographics_features else {},
+    {"Gender_filter": Gender_filter} if 'Gender' in demographics_features else {},
+    {"Income_filter": Income_filter} if 'Income' in demographics_features else {},
+    {"Suburb_filter": Suburb_filter} if 'Suburb' in demographics_features else {},
+    {"State_filter": State_filter} if 'State' in demographics_features else {},
+]
 flat_dict = {}
 for item in selections:
-    flat_dict.update(item)
+    flat_dict.update({key: str(value) for key, value in item.items()})
+# st.write(pd.DataFrame([flat_dict]).set_index('selected_industry').T)
+
 
 def mask_data(data):
-    # Mask First Name
     data['Firstname'] = '*****' + data['Firstname'][5:]
-
-    # Mask Surname
     data['Surname'] = '*****' + data['Surname'][5:]
-
-    # Mask Address (replace with a generic placeholder)
     data['Ad1'] = '*********'
-
-    # Mask Email Address
     email_parts = data['EmailAddress'].split('@')
     data['EmailAddress'] = '*****' + email_parts[1]
 
     return data
 
-if st.button('Submit'):
+if 'state' not in st.session_state:
+    st.session_state.state = {}
+
+if st.button('Submit for see the counts'):
     st.write('Total Records: ',industry_count)
 # # Execute the search
     result = es.search(index=index_name, body=query)['hits']['hits']
@@ -234,9 +304,8 @@ if st.button('Submit'):
     st.write('Time taken',str(round(((et-sti)),2))+' seconds')
 
     selections = pd.DataFrame([flat_dict]).set_index('selected_industry')
-    st.write('Selection Criterias: ',selections)
+    st.session_state.state['selections'] = selections
 
-    
     sample_df = es.search(index=index_name, body=query,size=5)['hits']['hits']
     l=[]
     for hit in sample_df:
@@ -244,10 +313,19 @@ if st.button('Submit'):
         l.append(hit['_source'])
     if len(l)>0:
         with st.expander("View Niche Market Selected Data"):
-            st.write(pd.DataFrame(l).apply(mask_data,axis=1))
+            st.write(pd.DataFrame(l).apply(mask_data,axis=1)[['Firstname','Surname','Age_range','Gender','Suburb','State']])
+
+    name=st.text_input('Enter Your Name:')
+    email=st.text_input('Enter Your Email Address:')
+    mobile=st.text_input('Enter Your Mobile Number:')
 
 
+if 'selections' in st.session_state.state and st.button('Request Data'):
+        send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name,email,mobile)
+        st.success(f'Thank you for your data request. The selection data has been sent to Affixcon.')
 
+    # else:
+    #     st.error('Please enter a valid Zoho Mail address.')
 
 
 
