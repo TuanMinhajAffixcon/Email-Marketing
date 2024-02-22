@@ -22,7 +22,7 @@ SENDING_EMAIL=os.getenv('SENDING_EMAIL')
 
 def send_email_zoho(email, df,name,email_address,mobile):
     subject = 'Data Request'
-    body = f'Please find below details for customer details for Data Request \nCustomer Name: {name} \n Customer Email: {email_address} \n Customer Mobile: {mobile}'
+    body = f'Please find below details for customer details for Data Request \nCustomer Name: {name} \nCustomer Email: {email_address} \nCustomer Mobile: {mobile}'
 
     # Connect to the Zoho Mail SMTP server
     server = smtplib.SMTP(ZOHO_SMTP_SERVER, ZOHO_SMTP_PORT)
@@ -321,7 +321,7 @@ if st.button('Submit for see the counts'):
 
 
 if 'selections' in st.session_state.state and st.button('Request Data'):
-        send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name,email,mobile)
+        send_email_zoho(SENDING_EMAIL, st.session_state.state['selections'].T,name=name,email_address=email,mobile=mobile)
         st.success(f'Thank you for your data request. The selection data has been sent to Affixcon.')
 
     # else:
