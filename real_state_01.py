@@ -18,6 +18,7 @@ body {
 }
 </style>
 """
+st.get_option("theme.dark")
 st.write(custom_css, unsafe_allow_html=True)
 st.markdown(custom_css, unsafe_allow_html=True)
 st.image('AFFIXCON-LOGO.png')
