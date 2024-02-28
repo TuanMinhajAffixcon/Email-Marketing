@@ -7,7 +7,7 @@ import re
 from dotenv import load_dotenv
 load_dotenv()
 
-st.set_page_config(page_title='Real Estate',layout='wide')
+st.set_page_config(page_title='Email Marketing',layout='wide')
 custom_css = """
 <style>
 body {
@@ -22,7 +22,29 @@ st.write(custom_css, unsafe_allow_html=True)
 st.markdown(custom_css, unsafe_allow_html=True)
 st.image('AFFIXCON-LOGO.png')
 
-index_name='health-care'
+indexes={'Health Care':'health-care',"Real Estate":'real_estate'}
+industry_selection=st.selectbox("Select Industry",['Health Care',"Real Estate"])
+
+if industry_selection=='Health Care':
+    index_name='health-care'
+    industry='Health care'
+    Age_range="Age_range"
+    Gender="Gender"
+    Income="Geo_INcome"
+    Suburb="Suburb"
+    State="State"
+
+
+else:
+    index_name='real_estate'
+    industry='Real estate'
+    Age_range="Age_range"
+    Gender="Gender"
+    Income="Income"
+    Suburb="Suburb"
+    State="State"
+
+
 elasticsearch_url = os.getenv('ELASTICSEARCH_URL')
 elasticsearch_api_key = os.getenv('ELASTICSEARCH_API_KEY')
 es = Elasticsearch(elasticsearch_url, api_key=elasticsearch_api_key)
@@ -32,7 +54,7 @@ st.title("Email Marketing Data Selection")
 df_seg=pd.read_csv('affixcon_segments.csv',encoding='latin-1').dropna(subset=['segment_name'])
 df_seg['code'] = df_seg['code'].astype(str)
 df_seg.category = df_seg.category.str.upper()
-selected_code= df_seg.loc[df_seg['industry'] == str('Real estate'), 'code'].values[0]
+selected_code= df_seg.loc[df_seg['industry'] == str(industry), 'code'].values[0]
 # st.write(selected_code)
 
 def filter_values(df, input_char):
@@ -132,12 +154,11 @@ def get_distinct_values(field, index, es):
     result = es.search(index=index, body=query)
     return [bucket["key"] for bucket in result["aggregations"]["distinct_values"]["buckets"]]
 
-all_age_range_values = get_distinct_values("Age_range", index_name, es)
-all_gender_values = get_distinct_values("Gender", index_name, es)
-all_Income_values = get_distinct_values("Income", index_name, es)
-all_Suburb_values = get_distinct_values("Suburb", index_name, es)
-all_State_values = get_distinct_values("State", index_name, es)
-
+all_age_range_values = get_distinct_values(Age_range, index_name, es)
+all_gender_values = get_distinct_values(Gender, index_name, es)
+all_Income_values = get_distinct_values(Income, index_name, es)
+all_Suburb_values = get_distinct_values(Suburb, index_name, es)
+all_State_values = get_distinct_values(State, index_name, es)
 
 sti=time.time()
 st.text("Please Select All Demographics with Own Selections. If not Select ALL")
@@ -168,17 +189,17 @@ query = {
 
 if len(age_range_filter)>0 and len(Gender_filter)>0 and len(Income_filter)>0 and len(Suburb_filter)>0 and len(State_filter)>0:
     query['query']['bool']['must'].extend([
-        {"terms": {"Age_range.keyword": age_range_filter}},
-        {"terms": {"Gender.keyword": Gender_filter}},
-        {"terms": {"Income.keyword": Income_filter}},
-        {"terms": {"Suburb.keyword": Suburb_filter}},
-        {"terms": {"State.keyword": State_filter}}
+        {"terms": {f"{Age_range}.keyword": age_range_filter}},
+        {"terms": {f"{Gender}.keyword": Gender_filter}},
+        {"terms": {f"{Income}.keyword": Income_filter}},
+        {"terms": {f"{Suburb}.keyword": Suburb_filter}},
+        {"terms": {f"{State}.keyword": State_filter}}
     ])
 else:
     st.warning("Please Select All filter.")
 
 selections = [
-    {"selected_industry": 'Real estate'},
+    {"selected_industry": industry_selection},
     {"niche_list": segment_list},
     {"age_range_filter": age_range_filter} if len(age_range_filter)!=len(all_age_range_values) else {},
     {"Gender_filter": Gender_filter} if len(Gender_filter)!=len(all_gender_values) else {},
@@ -226,3 +247,39 @@ if st.button('Submit for see the counts'):
     # if len(l)>0:
         # with st.expander("View Sample Niche Market Selected Data"):
             # st.write(pd.DataFrame(l).apply(mask_data,axis=1)[['Firstname','Surname','Age_range','Gender','Suburb','State']])
+
+
+
+pipeline_definition = {
+    "description": "Rename Fields",
+    "processors": [
+        {
+            "rename": {
+                "field": "Age_range",
+                "target_field": "Age_Range"
+            }
+        },
+        {
+            "rename": {
+                "field": "Geo_INcome",
+                "target_field": "Income"
+            }
+        }
+    ]
+}
+
+# Create or update the ingest pipeline
+es.ingest.put_pipeline(id='rename-fields-pipeline', body=pipeline_definition)
+
+# Index your data using the created pipeline
+document = {
+    "Age_range": "25-35",
+    "Concatenated": "SomeValue",
+    "Gender": "Male",
+    "Geo_INcome": "High",
+    "State": "California",
+    "Suburb": "SomeSuburb"
+}
+
+# Index the document using the pipeline
+es.index(index='your_index', body=document, pipeline='rename-fields-pipeline')
