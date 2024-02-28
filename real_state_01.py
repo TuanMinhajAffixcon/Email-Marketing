@@ -99,21 +99,21 @@ if 'BRAND VISITED' in result_dict and 'BRANDS VISITED' in result_dict:
     # Delete the 'a1' key
     del result_dict['BRANDS VISITED']
 
-selected_category = st.sidebar.radio("Select one option:", list(result_dict.keys()))
-if selected_segments:
-    if selected_category == 'INTERESTS':
-        segment_list=result_dict['INTERESTS']
-    elif selected_category == 'BRAND VISITED':
-        segment_list=result_dict['BRAND VISITED']
-    elif selected_category == 'PLACE CATEGORIES':
-        segment_list=result_dict['PLACE CATEGORIES']
-    elif selected_category == 'GEO BEHAVIOUR':
-        segment_list=result_dict['GEO BEHAVIOUR']
-else:
-    segment_list=[]
+# selected_category = st.sidebar.radio("Select one option:", list(result_dict.keys()))
+# if selected_segments:
+#     if selected_category == 'INTERESTS':
+segment_list=result_dict['INTERESTS']
+#     elif selected_category == 'BRAND VISITED':
+segment_list=result_dict['BRAND VISITED']
+#     elif selected_category == 'PLACE CATEGORIES':
+segment_list=result_dict['PLACE CATEGORIES']
+#     elif selected_category == 'GEO BEHAVIOUR':
+segment_list=result_dict['GEO BEHAVIOUR']
+# else:
+#     segment_list=[]
 
-for j in segment_list:
-    st.sidebar.write(j)
+# for j in segment_list:
+#     st.sidebar.write(j)
 #-----------------------------------------------------------------
 industry_count=es.count(index=index_name)['count']
 # st.write(industry_count)
@@ -147,15 +147,15 @@ Income_filter = st.multiselect(f"Select Income", ["All"]+sorted(set(value for va
 Suburb_filter = st.multiselect(f"Select Suburb", ["All"]+sorted(set(all_Suburb_values)))
 State_filter = st.multiselect(f"Select State", ["All"]+sorted(set(all_State_values)))
 
-if 'All' in age_range_filter:
+if 'All' in age_range_filter or len(age_range_filter)==0:
     age_range_filter=all_age_range_values
-if 'All' in Gender_filter:
+if 'All' in Gender_filter or len(Gender_filter)==0:
     Gender_filter=all_gender_values
-if 'All' in Income_filter:
+if 'All' in Income_filter or len(Income_filter)==0:
     Income_filter=all_Income_values
-if 'All' in Suburb_filter:
+if 'All' in Suburb_filter or len(Suburb_filter)==0:
     Suburb_filter=all_Suburb_values
-if 'All' in State_filter:
+if 'All' in State_filter or len(State_filter)==0:
     State_filter=all_State_values
 
 query = {
@@ -165,6 +165,7 @@ query = {
         }
     }
 }
+
 if len(age_range_filter)>0 and len(Gender_filter)>0 and len(Income_filter)>0 and len(Suburb_filter)>0 and len(State_filter)>0:
     query['query']['bool']['must'].extend([
         {"terms": {"Age_range.keyword": age_range_filter}},
@@ -201,12 +202,17 @@ def mask_data(data):
 
 if st.button('Submit for see the counts'):
     st.write('Total Records: ',industry_count)
+    
 # # Execute the search
     result = es.search(index=index_name, body=query)['hits']['hits']
+
     count = es.count(index=index_name, body=query)['count']
     et=time.time()
 
-    st.write("Total Matching Count",count)
+    if count==(industry_count):
+        st.write("Total Matching Count",0)
+    else:
+        st.write("Total Matching Count",count)
     st.write('Time taken',str(round(((et-sti)),2))+' seconds')
 
     selections = pd.DataFrame([flat_dict]).set_index('selected_industry')
